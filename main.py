@@ -3,6 +3,7 @@ import time
 import math
 import csv
 
+
 class Company: 
     def __init__(self):
         pass
@@ -13,21 +14,20 @@ class Company:
         tax = self.gross * 0.03
         return tax 
     def get_fed_tax(self):
-        gros = self.gross
-        if gros <=  12400:
-            tax = gros * 0.1 
-        elif gros > 12400 and gros <= 50400:
-            taxUno = 12400 * 0.1
-            taxDos = (gros - 12400) * 0.12
-            tax = taxUno + taxDos 
-        elif gros > 50400 and gros <= 105700:
-            taxUno = 12400 * 0.1
-            taxDos =  (50400 - 12400) * 0.12
-            taxTres = (gros - 5400) * 0.22
-            tax = taxUno + taxDos + taxTres
-        
-            
-            
+        fed = 0 
+        with open('federal.csv', 'r', newline='') as f:
+            reader = csv.reader(f)
+            # Convert all rows to a list
+            data = list(reader) 
+            for i in range(7):
+                min = int(data[i+1][0])
+                if self.gross > min:
+                    hib = float(data[i+1][2])
+                    tax = self.gross * hib 
+                    fed = fed + tax 
+                else: 
+                    break
+        return fed 
     def get_gross(self):
         reg = self.reg_hours * self.rate
         hol = self.hol_hours * self.rate 
@@ -42,4 +42,11 @@ class Company:
         netVal = self.gross - stateTax - ssTax - fedTax - self.roth
         self.net = netVal 
         return self.net 
-        
+    def seperate_hours(self): 
+        regHrs = int(input("How many hours were regular hours?: "))
+        holHrs = int(input("How many hours were holiday hours?: "))
+        oveHrs = 40 - (regHrs + holHrs)
+        self.reg_hours = regHrs
+        self.hol_hours = holHrs
+        self.over_hours = oveHrs 
+#Notes: I assume 401K and Roth will be in getting the employee data, along with their percentages / set amounts, let me know if you want to change this 
