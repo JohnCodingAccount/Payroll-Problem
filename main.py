@@ -189,14 +189,14 @@ class Company:
                         if img_rect.collidepoint(event.pos):
                             EMPLOYEE_NUM = int(EMPLOYEE_NUM)
                             if (EMPLOYEE_NUM + 1) == count:
-                                pass
+                                EMPLOYEE_NUM = 0
                             else:
                                 EMPLOYEE_NUM +=1 
                         #Checking if you clicked the left arrow
                         elif img_rect1.collidepoint(event.pos):
                             EMPLOYEE_NUM = int(EMPLOYEE_NUM)
                             if EMPLOYEE_NUM <= 0: 
-                                pass 
+                                EMPLOYEE_NUM = count
                             else:
                                 EMPLOYEE_NUM -=1 
             #Updating the text values based on the employee you are currently viewing      
@@ -259,10 +259,7 @@ while True:
         break
     else: 
         print("Print invalid input!")
-
+        
 #Prints farewell message
 os.system('cls')
 print("Thank you for using Alex & John's payroll program!")
-
-
-
