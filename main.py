@@ -3,6 +3,7 @@ import os
 from enum import Enum
 import pygame
 
+
 #Validation functions for each employee data field
 def verify_name(name, data):
     return len(name.strip()) > 0
@@ -47,7 +48,7 @@ def verify_401k(_401k, data):
     except ValueError:
         return False
 
-#Class made in order to easily store and retrieve employee data
+
 class EmployeeData(Enum):
     NAME     = ("What is the employee's name?: ",                                          str,   verify_name)
     HOURS    = ("How many hours a week does the employee work?: ",                         float, verify_hours)
@@ -86,9 +87,8 @@ class Employee:
         hol = data['HOL_HOURS'] * rate
         over_hours = max(0, data['HOURS'] - (data['HOL_HOURS'] + data['REG_HOURS']))
         over_pay = over_hours * rate * 1.5
-        pre_tax_401k = (reg + hol + over_pay) * (data['_401K'] / 100)
-        self.gross = round((reg + hol + over_pay) - pre_tax_401k, 2)
-        dub = round((reg + hol + over_pay) - pre_tax_401k, 2)
+        self.gross = round((reg + hol + over_pay), 2)
+        dub = round((reg + hol + over_pay), 2)
         return (self.gross, dub)
 
     #Gets federal tax using a withholding table
@@ -114,14 +114,16 @@ class Employee:
 
     #Calculates the net pay of the employee incorperating SS tax, state tax, federal tax, gross income, and ROTH
     def calculate_pay(self):
-        gross = self.get_gross()[0]
+        data = self.employee_data
+        _401K_deduct = (self.get_gross()[0] * (data['_401K'] / 100))
+        gross = self.get_gross()[0] - _401K_deduct
         ss_tax = gross * 0.0765
         state_tax = gross * 0.03
         fed_tax = self.get_fed_tax()
         roth_deduction = gross * (self.employee_data['ROTH'] / 100)
         self.net = round(gross - ss_tax - state_tax - fed_tax - roth_deduction, 2)
         dub = round(gross - ss_tax - state_tax - fed_tax - roth_deduction, 2)
-        return (self.net, dub)
+        return (self.net, dub, ss_tax, state_tax, fed_tax, roth_deduction, _401K_deduct)
 
     #Prints employee's most critcal data, including: name, gross income, and net income
     def __str__(self):
@@ -168,10 +170,16 @@ class Company:
         #Setting window name
         pygame.display.set_caption('Payroll Program')
 
-        font_title = pygame.font.Font('freesansbold.ttf', 28)
+        #Sets up different font
+        title_path = "ChelseaMarket-Regular.ttf"
+
+        #Sets up title font & regitsters other fonts
+        font_title = pygame.font.Font(title_path, 28)
         font_label = pygame.font.Font('freesansbold.ttf', 14)
         font_val   = pygame.font.Font('freesansbold.ttf', 14)
 
+        
+        #Defines variable for latter use
         EMPLOYEE_NUM = 0
 
         #Animation state
@@ -183,7 +191,7 @@ class Company:
 
         #Arrow button rects (drawn manually, no images needed)
         arrow_left_rect  = pygame.Rect(10,  height - 70, 80, 50)
-        arrow_right_rect = pygame.Rect(width - 90, height - 70, 80, 50)
+        arrow_right_rect = pygame.Rect(width - 90, height - 20, 80, 50)
 
         #Loading in outside graphics and setting position
         try:
@@ -193,6 +201,11 @@ class Company:
             img1 = pygame.image.load('sizedLeft.png').convert_alpha()
             img_rect1 = img1.get_rect()
             img_rect1.center = (50, height - 45)
+            load = pygame.Rect(302.5, height - 75, 50, 50)
+            flip = pygame.image.load('duct.png').convert_alpha()
+            flipped = pygame.transform.scale(flip, (50, 50)) 
+            flipped_rect = flipped.get_rect()
+            flipped_rect.center = (302.5, height - 55)
             use_images = True
         except:
             use_images = False
@@ -232,11 +245,61 @@ class Company:
                 'net':      f"${emp.calculate_pay()[1]:.2f}",
                 '401k':     f"{data.get('_401K')}%",
                 'roth':     f"{data.get('ROTH')}%",
+                '_401k_deduct': f"${emp.calculate_pay()[6]:.2f}",
+                'roth_deduct' : f"${emp.calculate_pay()[5]:.2f}",
+                "ss_tax_deduct" : f"${emp.calculate_pay()[2]:.2f}",
+                "state_tax_deduct" : f"${emp.calculate_pay()[3]:.2f}",
+                "fed_tax_deduct" : f"${emp.calculate_pay()[4]:.2f}",
+                "reg_hours_pay" : f"${data.get('REG_HOURS') * data.get('RATE'):.2f}",
+                "hol_hours_pay" : f"${data.get('HOL_HOURS') * data.get('RATE'):.2f}",
+                "over_hours_pay" : f"${round(over_hours * data.get('RATE') * 1.5, 2)}",
             }
 
         #Setting up a main loop for window
         running = True
+
+        #Adds background music to the program 
+        pygame.mixer.music.load("Stars.mp3")
+        pygame.mixer.music.set_volume(0.0)
+        pygame.mixer.music.play(-1)
+
+        lines = get_employee_lines(EMPLOYEE_NUM)
+
+        cards_left_1 = [
+                ("Name",          lines['name'],  white, gold),
+                ("Hours / Week",  lines['hours'], white, white),
+                ("Regular Hours", lines['reg'],   white, white),
+                ("Holiday Hours", lines['hol'],   white, white),
+                ("Overtime Hours",lines['over'],  white, white),
+            ]
+
+        card_left_2 = [
+                ("Name",          lines['name'],  white, gold),
+                ("Regular Hours Pay",  lines['reg_hours_pay'], white, white),
+                ("Holiday Hours Pay", lines['hol_hours_pay'],   white, white),
+                ("Over Hours Pay", lines['over_hours_pay'],   white, white),
+                ("401K Deduction",lines['_401k_deduct'],  white, white),
+            ]
+        cards_right_1 = [
+                ("Hourly Rate",   lines['rate'],  white, gold),
+                ("401K Rate",     lines['401k'],  white, white),
+                ("ROTH Rate",     lines['roth'],  white, white),
+                ("Gross Pay",     lines['gross'], white, gold),
+                ("Net Pay",       lines['net'],   white, green),
+            ]
+        cards_right_2 = [
+                ("Roth Deduction",   lines['roth_deduct'],  white, white),
+                ("SS/Insurance Deduction",     lines['ss_tax_deduct'],  white, white),
+                ("State Deduction",     lines['state_tax_deduct'],  white, white),
+                ("Federal Deduction",     lines['fed_tax_deduct'], white, white),
+                ("Net ",  lines['net'],   white, green),
+            ]
+
+        cards_left = cards_left_1
+        cards_right = cards_right_1
         while running:
+            
+            
             dt = clock.tick(60)
             mouse_pos = pygame.mouse.get_pos()
 
@@ -255,6 +318,8 @@ class Company:
                                 slide_offset = width
                                 slide_direction = -1
                                 sliding = True
+                                cards_right = cards_right_1
+                                cards_left = cards_left_1
                         #Checking if you clicked the left arrow
                         elif arrow_left_rect.collidepoint(event.pos) or (use_images and img_rect1.collidepoint(event.pos)):
                             if not sliding:
@@ -262,6 +327,32 @@ class Company:
                                 slide_offset = -width
                                 slide_direction = 1
                                 sliding = True
+                                cards_left = cards_left_1
+                                cards_right = cards_right_1
+                        if load.collidepoint(event.pos):
+                            if cards_left == card_left_2 and cards_right == cards_right_2:
+                                cards_left = cards_left_1
+                                cards_right = cards_right_1
+                            else:
+                                cards_left = card_left_2
+                                cards_right = cards_right_2
+                elif event.type == pygame.KEYDOWN:
+                    #Checking if you pressed the left key
+                    if event.key == pygame.K_LEFT:
+                        if not sliding:
+                            EMPLOYEE_NUM = (EMPLOYEE_NUM - 1) % count
+                            slide_offset = -width
+                            slide_direction = 1
+                            sliding = True
+                            lines = get_employee_lines(EMPLOYEE_NUM)
+                    #Checking if you pressed the right key
+                    if event.key == pygame.K_RIGHT:
+                        if not sliding:
+                            EMPLOYEE_NUM = (EMPLOYEE_NUM + 1) % count
+                            slide_offset = width
+                            slide_direction = -1
+                            sliding = True
+                            lines = get_employee_lines(EMPLOYEE_NUM)
 
             #Animate slide
             if sliding:
@@ -270,11 +361,19 @@ class Company:
                     if slide_offset <= 0:
                         slide_offset = 0
                         sliding = False
+
                 else:
                     slide_offset += SLIDE_SPEED
                     if slide_offset >= 0:
                         slide_offset = 0
                         sliding = False
+                    for i, (lbl, val, lc, vc) in enumerate(cards_left):
+                        y = start_y + i * (card_h + margin)
+                        draw_card(panel_x + margin, y, card_w, card_h, lbl, val, lc, vc)
+
+                    for i, (lbl, val, lc, vc) in enumerate(cards_right):
+                        y = start_y + i * (card_h + margin)
+                        draw_card(panel_x + margin*2 + card_w, y, card_w, card_h, lbl, val, lc, vc)
 
             #Setting the dark background
             screen.fill((10, 10, 20))
@@ -302,19 +401,36 @@ class Company:
             margin = 16
             start_y = 65
 
-            cards_left = [
+            
+
+            cards_left_1 = [
                 ("Name",          lines['name'],  white, gold),
                 ("Hours / Week",  lines['hours'], white, white),
                 ("Regular Hours", lines['reg'],   white, white),
                 ("Holiday Hours", lines['hol'],   white, white),
                 ("Overtime Hours",lines['over'],  white, white),
             ]
-            cards_right = [
+
+            card_left_2 = [
+                ("Name",          lines['name'],  white, gold),
+                ("Regular Hours Pay",  lines['reg_hours_pay'], white, white),
+                ("Holiday Hours Pay", lines['hol_hours_pay'],   white, white),
+                ("Over Hours Pay", lines['over_hours_pay'],   white, white),
+                ("401K Deduction",lines['_401k_deduct'],  white, white),
+            ]
+            cards_right_1 = [
                 ("Hourly Rate",   lines['rate'],  white, gold),
                 ("401K Rate",     lines['401k'],  white, white),
                 ("ROTH Rate",     lines['roth'],  white, white),
-                ("Gross Pay",     lines['gross'], white, green),
-                ("Net Pay",       lines['net'],   white, gold),
+                ("Gross Pay",     lines['gross'], white, gold),
+                ("Net Pay",       lines['net'],   white, green),
+            ]
+            cards_right_2 = [
+                ("Roth Deduction",   lines['roth_deduct'],  white, white),
+                ("SS/Insurance Deduction",     lines['ss_tax_deduct'],  white, white),
+                ("State Deduction",     lines['state_tax_deduct'],  white, white),
+                ("Federal Deduction",     lines['fed_tax_deduct'], white, white),
+                ("Net Pay",  lines['net'],   white, green),
             ]
 
             for i, (lbl, val, lc, vc) in enumerate(cards_left):
@@ -332,6 +448,7 @@ class Company:
             if use_images:
                 screen.blit(img1, img_rect1)
                 screen.blit(img,  img_rect)
+                screen.blit(flipped, flipped_rect)
             else:
                 draw_arrow_button(arrow_left_rect,  'left',  left_hovered)
                 draw_arrow_button(arrow_right_rect, 'right', right_hovered)
